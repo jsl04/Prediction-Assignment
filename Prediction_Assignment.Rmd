@@ -1,0 +1,54 @@
+---
+title: "Practical Machine Learning Prediction Assignment"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(data.table)
+library(dplyr)
+library(caret)
+library(randomForest)
+testing<- read.csv("pml-testing.csv",na.strings = c("","NA","NULL"))
+training<- read.csv("pml-training.csv",na.strings = c("","NA","NULL"))
+```
+
+#Cleaning the Data
+
+First, I am removing any variables that contain many NA values
+```{r}
+training_nona<- training[ ,colSums(is.na(training))==0]
+testing_nona<- testing[ ,colSums(is.na(testing))==0]
+drops<- c('X','user name','raw_timestamp_part_1','raw_timestamp_part_2','cvtd_timestamp','new_window','num_window')
+clean_training<- training_nona[,!(names(training_nona) %in% drops)]
+clean_testing<- testing_nona[,!(names(testing_nona) %in% drops)]
+```
+
+#Partitioning our training and testing data
+
+As in previous quizes, it's recommended that we split the training and testing data into a 60/40 split. Since the classe column is the outcome, we will use that to split the data off of.
+```{r}
+intrain<- createDataPartition(y= clean_training$classe, p=0.6, list = FALSE)
+training<- clean_training[intrain, ]
+testing<- clean_training[-intrain, ]
+dim(training);dim(testing)
+```
+
+#Using Random Forest to Predict
+I have decided to use random forest as the prediction model since it builds many decision tress and uses them to reduce variance. The first step is to fit the model and measure the accuracy of it in predicting the outcome, classe.
+```{r}
+set.seed(12345)
+with_rf<- train(classe ~.,data=training,method="rf")
+with_rf
+pre_rf<- predict(with_rf,testing)
+confusionMatrix(pre_rf,testing$classe)$overall[1]
+save(with_rf,file="rf_training_model.RData")
+```
+Our overall accuracy in predicting classe is 99%, I highly doubt you will find another model that fits the test data with that amount of accuracy.
+
+#Apply Random Forest Model to Testing Data
+Below we apply the model to our testing data along with showing which variables were most important in the model.
+```{r}
+pre_rf_testing<- predict(with_rf,clean_testing,type="raw")
+pre_rf_testing
+varImp(with_rf)
+```
